@@ -49,6 +49,8 @@ var CertConfigPathMap = map[string]string{
 	"ubuntu": "/usr/local/share/ca-certificates",
 	"rhcos":  "/etc/pki/ca-trust/extracted/pem",
 	"rhel":   "/etc/pki/ca-trust/extracted/pem",
+	"sles":   "/etc/pki/trust/anchors",
+	"sl-micro":   "/etc/pki/trust/anchors",
 }
 
 // MountPathToVolumeSource maps a container mount path to a VolumeSource
