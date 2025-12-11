@@ -36,6 +36,8 @@ var RepoConfigPathMap = map[string]string{
 	"ubuntu": "/etc/apt/sources.list.d",
 	"rhcos":  "/etc/yum.repos.d",
 	"rhel":   "/etc/yum.repos.d",
+	"sles":   "/etc/zypp/repos.d",
+	"sl-micro":   "/etc/zypp/repos.d",
 }
 
 // CertConfigPathMap indicates standard OS specific paths for ssl keys/certificates.
