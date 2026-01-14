@@ -3548,6 +3548,28 @@ func transformDriverContainer(obj *appsv1.DaemonSet, config *gpuv1.ClusterPolicy
 		}
 	}
 
+	// Mount /lib/modules for precompiled drivers
+	if config.Driver.UsePrecompiledDrivers() {
+		n.logger.Info("Mounting /lib/modules into the driver container")
+		libModulesVolMount := corev1.VolumeMount{
+			Name:      "lib-modules",
+			MountPath: "/run/host/lib/modules",
+			ReadOnly:  true,
+		}
+		driverContainer.VolumeMounts = append(driverContainer.VolumeMounts, libModulesVolMount)
+
+		libModulesVol := corev1.Volume{
+			Name: "lib-modules",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/lib/modules",
+					Type: ptr.To(corev1.HostPathDirectory),
+				},
+			},
+		}
+		podSpec.Volumes = append(podSpec.Volumes, libModulesVol)
+	}
+
 	// no further repo configuration required when using pre-compiled drivers, return here.
 	if config.Driver.UsePrecompiledDrivers() {
 		return nil
