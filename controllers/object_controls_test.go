@@ -1884,8 +1884,8 @@ func TestMIGManager(t *testing.T) {
 	}
 }
 
-// TestDriverPrecompiledLibModules tests that /lib/modules is mounted when precompiled drivers are used
-func TestDriverPrecompiledLibModules(t *testing.T) {
+// TestDriverPrecompiledLibModulesUbuntu tests that /lib/modules is NOT mounted for precompiled drivers on Ubuntu
+func TestDriverPrecompiledLibModulesUbuntu(t *testing.T) {
 	cp := getDriverTestInput("precompiled")
 	output := getDriverTestOutput("precompiled")
 
@@ -1895,29 +1895,17 @@ func TestDriverPrecompiledLibModules(t *testing.T) {
 	}
 	require.NotNil(t, ds)
 
-	// Check for /lib/modules volume and mount
-	foundVolume := false
+	// Check that /lib/modules volume and mount are NOT present
 	for _, vol := range ds.Spec.Template.Spec.Volumes {
-		if vol.Name == "lib-modules" {
-			foundVolume = true
-			require.NotNil(t, vol.HostPath)
-			require.Equal(t, "/lib/modules", vol.HostPath.Path)
-		}
+		require.NotEqual(t, "lib-modules", vol.Name, "lib-modules volume should not be present for ubuntu")
 	}
-	require.True(t, foundVolume, "lib-modules volume not found for precompiled drivers")
 
-	foundMount := false
 	driverContainer := findContainerByName(ds.Spec.Template.Spec.Containers, "nvidia-driver-ctr")
 	require.NotNil(t, driverContainer)
 
 	for _, mount := range driverContainer.VolumeMounts {
-		if mount.Name == "lib-modules" {
-			foundMount = true
-			require.Equal(t, "/run/host/lib/modules", mount.MountPath)
-			require.True(t, mount.ReadOnly)
-		}
+		require.NotEqual(t, "lib-modules", mount.Name, "lib-modules volume mount should not be present for ubuntu")
 	}
-	require.True(t, foundMount, "lib-modules volume mount not found for precompiled drivers")
 
 	// Cleanup
 	err = removeState(&clusterPolicyController, clusterPolicyController.idx-1)
@@ -1925,4 +1913,61 @@ func TestDriverPrecompiledLibModules(t *testing.T) {
 		t.Fatalf("error removing state %v:", err)
 	}
 	clusterPolicyController.idx--
+}
+
+// TestDriverPrecompiledLibModulesSuse tests that /lib/modules is mounted for precompiled drivers on SLES and SL-Micro
+func TestDriverPrecompiledLibModulesSuse(t *testing.T) {
+	osTags := []string{"sles16.0", "sl-micro6.1"}
+
+	for _, osTag := range osTags {
+		t.Run(osTag, func(t *testing.T) {
+			// Save original OS tag and restore after test
+			originalOSTag := clusterPolicyController.gpuNodeOSTag
+			defer func() {
+				clusterPolicyController.gpuNodeOSTag = originalOSTag
+			}()
+
+			clusterPolicyController.gpuNodeOSTag = osTag
+
+			cp := getDriverTestInput("precompiled")
+			output := getDriverTestOutput("precompiled")
+
+			ds, err := testDaemonsetCommon(t, cp, "Driver", output["numDaemonsets"].(int))
+			if err != nil {
+				t.Fatalf("error in testDaemonsetCommon(): %v", err)
+			}
+			require.NotNil(t, ds)
+
+			// Check for /lib/modules volume and mount
+			foundVolume := false
+			for _, vol := range ds.Spec.Template.Spec.Volumes {
+				if vol.Name == "lib-modules" {
+					foundVolume = true
+					require.NotNil(t, vol.HostPath)
+					require.Equal(t, "/lib/modules", vol.HostPath.Path)
+				}
+			}
+			require.Truef(t, foundVolume, "lib-modules volume not found for precompiled drivers on %s", osTag)
+
+			foundMount := false
+			driverContainer := findContainerByName(ds.Spec.Template.Spec.Containers, "nvidia-driver-ctr")
+			require.NotNil(t, driverContainer)
+
+			for _, mount := range driverContainer.VolumeMounts {
+				if mount.Name == "lib-modules" {
+					foundMount = true
+					require.Equal(t, "/run/host/lib/modules", mount.MountPath)
+					require.True(t, mount.ReadOnly)
+				}
+			}
+			require.Truef(t, foundMount, "lib-modules volume mount not found for precompiled drivers on %s", osTag)
+
+			// Cleanup
+			err = removeState(&clusterPolicyController, clusterPolicyController.idx-1)
+			if err != nil {
+				t.Fatalf("error removing state %v:", err)
+			}
+			clusterPolicyController.idx--
+		})
+	}
 }

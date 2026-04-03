@@ -3553,8 +3553,10 @@ func transformDriverContainer(obj *appsv1.DaemonSet, config *gpuv1.ClusterPolicy
 		}
 	}
 
-	// Mount /lib/modules for precompiled drivers
-	if config.Driver.UsePrecompiledDrivers() {
+	// Mount /lib/modules for precompiled drivers on SUSE distributions.
+	// Those containers need access to host /lib/modules at runtime.
+	osID := getOSName(n.gpuNodeOSTag)
+	if config.Driver.UsePrecompiledDrivers() && (osID == "sles" || osID == "sl-micro") {
 		n.logger.Info("Mounting /lib/modules into the driver container")
 		libModulesVolMount := corev1.VolumeMount{
 			Name:      "lib-modules",
@@ -3616,7 +3618,7 @@ func transformDriverContainer(obj *appsv1.DaemonSet, config *gpuv1.ClusterPolicy
 		}
 	}
 
-	osID := getOSName(n.gpuNodeOSTag)
+	osID = getOSName(n.gpuNodeOSTag)
 	// set up subscription entitlements for RHEL(using K8s with a non-CRIO runtime) and SLES
 	if (osID == "rhel" && n.openshift == "" && n.runtime != gpuv1.CRIO) || osID == "sles" || osID == "sl-micro" {
 		n.logger.Info("Mounting subscriptions into the driver container", "OS", osID)
